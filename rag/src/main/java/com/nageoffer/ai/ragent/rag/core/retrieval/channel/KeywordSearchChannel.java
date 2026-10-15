@@ -23,7 +23,7 @@ import com.nageoffer.ai.ragent.rag.config.SearchChannelProperties;
 import com.nageoffer.ai.ragent.rag.core.keyword.KeywordRetrieverService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -33,8 +33,8 @@ import java.util.concurrent.Executor;
 /**
  * 关键词检索通道
  * <p>
- * 基于全文检索引擎（ES）的 BM25 关键词召回，与向量通道互补：擅长精确词、编号、专有名词等
- * 仅当开启 ES 关键词检索（rag.keyword.type=es）时才注册，
+ * 基于全文检索引擎（Elasticsearch / Milvus）的 BM25 关键词召回，与向量通道互补：擅长精确词、编号、专有名词等
+ * 仅当开启关键词检索（rag.keyword.type=es 或 milvus）时才注册，
  * 否则整个通道不存在，引擎自动退化为纯向量检索
  * <p>
  * 与其他通道并行执行，结果统一进 RRF 融合，通道间无先后与优先级之分；检索范围读引擎解析好的作用域，与向量通道同源
@@ -42,7 +42,7 @@ import java.util.concurrent.Executor;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(prefix = "rag.keyword", name = "type", havingValue = "es")
+@ConditionalOnExpression("'es'.equalsIgnoreCase('${rag.keyword.type:none}') || 'milvus'.equalsIgnoreCase('${rag.keyword.type:none}')")
 public class KeywordSearchChannel implements SearchChannel {
 
     private final KeywordRetrieverService keywordRetriever;

@@ -33,7 +33,8 @@ public class KeywordProperties {
 
     /**
      * 关键词检索后端类型
-     * 可选 none（关闭）/ es；none 时不注册任何关键词读写实现
+     * 可选 none（关闭）/ es（Elasticsearch BM25）/ milvus（Milvus 全文检索 BM25）；
+     * none 时不注册任何关键词读写实现
      */
     private String type = "none";
 
@@ -41,6 +42,11 @@ public class KeywordProperties {
      * Elasticsearch 配置
      */
     private Es es = new Es();
+
+    /**
+     * Milvus 全文检索配置（type=milvus 时生效；建 collection 时读取 analyzer，改后需重建 collection）
+     */
+    private Milvus milvus = new Milvus();
 
     /**
      * 全部知识库共用的物理索引名称
@@ -73,5 +79,15 @@ public class KeywordProperties {
          * 查询分词器
          */
         private String searchAnalyzer = "ik_smart";
+    }
+
+    @Data
+    public static class Milvus {
+
+        /**
+         * Milvus 全文检索分析器，作用于 content 字段的 enableAnalyzer
+         * 内置取值：chinese（jieba 中文分词）/ english / standard 等；改后需重建 collection 才生效
+         */
+        private String analyzer = "chinese";
     }
 }

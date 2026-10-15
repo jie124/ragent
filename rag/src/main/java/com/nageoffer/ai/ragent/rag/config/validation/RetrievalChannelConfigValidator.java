@@ -64,15 +64,15 @@ public final class RetrievalChannelConfigValidator {
      */
     private record ChannelSpec(String label,
                                String typeKey,
-                               String requiredType,
+                               List<String> requiredTypes,
                                String enabledKey,
                                String enableHint) {
     }
 
     private static final List<ChannelSpec> SPECS = List.of(
-            new ChannelSpec("关键词检索", "rag.keyword.type", "es",
-                    "rag.search.channels.keyword.enabled", "并配置 rag.keyword.es.*"),
-            new ChannelSpec("图谱检索", "rag.graph.type", "lightrag",
+            new ChannelSpec("关键词检索", "rag.keyword.type", List.of("es", "milvus"),
+                    "rag.search.channels.keyword.enabled", "并配置 rag.keyword.es.* 或 rag.keyword.milvus.*"),
+            new ChannelSpec("图谱检索", "rag.graph.type", List.of("lightrag"),
                     "rag.search.channels.graph.enabled", "并确保 LightRAG 服务可达（rag.graph.lightrag.base-url）")
     );
 
@@ -91,10 +91,12 @@ public final class RetrievalChannelConfigValidator {
             // 后端未装配：type 缺省 / 空白 / 非所需值（大小写不敏感，与 @ConditionalOnProperty 判定对齐）
             boolean backendOff = actualType == null
                     || actualType.isBlank()
-                    || !actualType.trim().equalsIgnoreCase(spec.requiredType());
+                    || spec.requiredTypes().stream()
+                            .noneMatch(required -> required.equalsIgnoreCase(actualType.trim()));
             if (backendOff && enabledReader.test(spec.enabledKey())) {
                 violations.add(new Violation(spec.label(), spec.typeKey(),
-                        actualType == null ? "" : actualType, spec.requiredType(),
+                        actualType == null ? "" : actualType,
+                        String.join(" / ", spec.requiredTypes()),
                         spec.enabledKey(), spec.enableHint()));
             }
         }

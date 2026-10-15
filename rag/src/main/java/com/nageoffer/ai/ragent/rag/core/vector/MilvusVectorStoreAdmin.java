@@ -17,7 +17,9 @@
 
 package com.nageoffer.ai.ragent.rag.core.vector;
 
+import com.nageoffer.ai.ragent.rag.config.KeywordProperties;
 import com.nageoffer.ai.ragent.rag.config.RAGDefaultProperties;
+import io.milvus.common.clientenum.FunctionType;
 import io.milvus.v2.client.MilvusClientV2;
 import io.milvus.v2.common.ConsistencyLevel;
 import io.milvus.v2.common.DataType;
@@ -43,6 +45,7 @@ public class MilvusVectorStoreAdmin implements VectorStoreAdmin {
 
     private final MilvusClientV2 milvusClient;
     private final RAGDefaultProperties ragDefaultProperties;
+    private final KeywordProperties keywordProperties;
 
     @Override
     public void ensureVectorSpace(VectorSpaceSpec spec) {
@@ -81,6 +84,9 @@ public class MilvusVectorStoreAdmin implements VectorStoreAdmin {
                         .name("content")
                         .dataType(DataType.VarChar)
                         .maxLength(65535)
+                        // 全文检索：开启分析器，配合下方 BM25 function 自动维护 content 的关键词倒排索引
+                        .enableAnalyzer(true)
+                        .analyzerParams(Map.<String, Object>of("type", keywordProperties.getMilvus().getAnalyzer()))
                         .build()
         );
 
@@ -99,9 +105,26 @@ public class MilvusVectorStoreAdmin implements VectorStoreAdmin {
                         .build()
         );
 
+        // BM25 function 的输出字段：由 Milvus 依据 content 的 analyzer 自动生成稀疏向量，用于全文（关键词）检索
+        fieldSchemaList.add(
+                CreateCollectionReq.FieldSchema.builder()
+                        .name("content_sparse")
+                        .dataType(DataType.SparseFloatVector)
+                        .build()
+        );
+
+        // 把 content 映射为稀疏向量，使共享 collection 同时支持向量检索与全文检索；输出字段的倒排索引由 Milvus 自动维护
+        CreateCollectionReq.Function bm25Function = CreateCollectionReq.Function.builder()
+                .name("content_bm25")
+                .functionType(FunctionType.BM25)
+                .inputFieldNames(List.of("content"))
+                .outputFieldNames(List.of("content_sparse"))
+                .build();
+
         CreateCollectionReq.CollectionSchema collectionSchema = CreateCollectionReq.CollectionSchema
                 .builder()
                 .fieldSchemaList(fieldSchemaList)
+                .functionList(List.of(bm25Function))
                 .build();
 
         IndexParam hnswIndex = IndexParam.builder()
